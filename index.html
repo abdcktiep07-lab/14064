@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>淨零號的冒險：ISO 14064-1 奪寶之旅</title>
+    
+    <!-- 1. 引入 Tailwind CSS (樣式) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2. 引入 React 和 Babel (核心邏輯) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- 3. 字型設定 -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=Special+Elite&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Noto Sans TC', sans-serif; }
+        .font-serif { font-family: 'Special Elite', 'Noto Sans TC', serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #888; }
+        
+        @keyframes blob {
+            0% { transform: translate(0px, 0px) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0px, 0px) scale(1); }
+        }
+        .animate-blob { animation: blob 7s infinite; }
+        .animation-delay-2000 { animation-delay: 2s; }
+    </style>
+</head>
+<body class="bg-slate-900 text-white">
+
+<div id="root"></div>
+
+<script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // --- 圖示組件 (Inline SVGs to replace lucide-react imports) ---
+    const IconBase = ({ d, className, color = "currentColor" }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            {d}
+        </svg>
+    );
+
+    const Ship = (props) => <IconBase {...props} d={<><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.18"/><path d="M12 10V4"/><path d="M8 8l2.5-2.5"/><path d="M16 8l-2.5-2.5"/></>} />;
+    const Anchor = (props) => <IconBase {...props} d={<><circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></>} />;
+    const Skull = (props) => <IconBase {...props} d={<><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><path d="M8 20v2h8v-2"/><path d="M12.5 17l-.5-1-.5 1h1z"/><path d="M16 20a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20"/></>} />;
+    const Trophy = (props) => <IconBase {...props} d={<><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></>} />;
+    const MapIcon = (props) => <IconBase {...props} d={<><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></>} />;
+    const AlertTriangle = (props) => <IconBase {...props} d={<><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></>} />;
+    const Heart = (props) => <IconBase {...props} d={<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>} />;
+    const Sword = (props) => <IconBase {...props} d={<><polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" y1="19" x2="19" y2="13"/><line x1="16" y1="16" x2="20" y2="20"/><line x1="19" y1="21" x2="21" y2="19"/></>} />;
+    const RefreshCw = (props) => <IconBase {...props} d={<><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></>} />;
+    const CheckCircle = (props) => <IconBase {...props} d={<><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>} />;
+    const X = (props) => <IconBase {...props} d={<><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>} />;
+    const Scroll = (props) => <IconBase {...props} d={<><path d="M19 4c0-1.1-.9-2-2-2h-1c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h1c1.1 0 2-.9 2-2V4Z"/><path d="M8 18h11"/><path d="M8 6h11"/><path d="M8 12h11"/><path d="M15 2H4a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h13"/></>} />;
+    const Key = (props) => <IconBase {...props} d={<><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></>} />;
+    const Bomb = (props) => <IconBase {...props} d={<><circle cx="11" cy="13" r="9"/><path d="M14.35 4.65 16.3 2.7a2.41 2.41 0 0 1 3.4 0l1.6 1.6a2.4 2.4 0 0 1 0 3.4l-1.95 1.95"/></>} />;
+
+    // --- 資料區 ---
+    const gameLevels = [
+      {
+        rank: 10,
+        name: "迷霧島嶼：數據品質",
+        enemy: "失準的羅盤怪",
+        description: "濃霧中，你的儀表讀數開始亂跳！沒有人校正過這些儀器！",
+        dialogue: "船長！儀表很久沒校正了，我們不知道現在的數據是對是錯！",
+        correctAnswer: 1,
+        options: [
+          { id: 0, text: "不管它，憑感覺航行！(忽視校正)", damage: 20 },
+          { id: 1, text: "啟動內部稽核，定期送校儀表！(建立校正機制)", damage: 0 },
+          { id: 2, text: "用隔壁船的儀表數據猜一下。(無追溯性)", damage: 20 }
+        ],
+        bgClass: "bg-slate-700"
+      },
+      {
+        rank: 9,
+        name: "隱形礁石：報告透明度",
+        enemy: "資訊缺漏幽靈",
+        description: "報告書中充滿了空白，看不見排除理由，也看不見係數來源！",
+        dialogue: "稽核員看不到我們的航海日誌細節，他要生氣了！",
+        correctAnswer: 0,
+        options: [
+          { id: 0, text: "依指引揭露完整資訊與排除理由！(補足透明度)", damage: 0 },
+          { id: 1, text: "把那幾頁撕掉，假裝沒這回事。(刻意隱瞞)", damage: 25 },
+          { id: 2, text: "告訴他這是商業機密！(拒絕揭露)", damage: 25 }
+        ],
+        bgClass: "bg-indigo-800"
+      },
+      {
+        rank: 8,
+        name: "舊世界海域：GWP 版本",
+        enemy: "過時的古老海圖",
+        description: "你手上的 GWP (全球暖化潛勢) 版本太舊了，跟現在的標準對不上！",
+        dialogue: "我們還在用舊版的係數計算，這樣算出來的碳排量是錯的！",
+        correctAnswer: 2,
+        options: [
+          { id: 0, text: "沿用舊版，反正以前都這樣用。(忽視標準)", damage: 20 },
+          { id: 1, text: "隨便網路上找一個最新的用。(來源不明)", damage: 20 },
+          { id: 2, text: "採用 IPCC 最新版次，並註明依據！(符合規範)", damage: 0 }
+        ],
+        bgClass: "bg-blue-900"
+      },
+      {
+        rank: 7,
+        name: "計算漩渦：量化錯誤",
+        enemy: "亂數海妖",
+        description: "熱值沒有轉換，係數單位跟活動數據單位打架了！",
+        dialogue: "船長！我們把公升跟加侖混在一起算了！數字大亂！",
+        correctAnswer: 1,
+        options: [
+          { id: 0, text: "把數字除以二看看，看起來比較合理。(數據造假)", damage: 30 },
+          { id: 1, text: "優先選用高準確度數值，統一單位！(精確計算)", damage: 0 },
+          { id: 2, text: "全部當作零排放處理！(逃避現實)", damage: 30 }
+        ],
+        bgClass: "bg-violet-800"
+      },
+      {
+        rank: 6,
+        name: "遺忘之洞：紀錄保存",
+        enemy: "憑證吞噬者",
+        description: "綠電憑證不見了！原始單據也找不到了！沒有證據證明你的清白！",
+        dialogue: "查驗員要看我們的綠電憑證，但我們只有一張手寫的收據！",
+        correctAnswer: 0,
+        options: [
+          { id: 0, text: "檢附完整憑證、轉供證明與註銷記錄！(證據確鑿)", damage: 0 },
+          { id: 1, text: "跟他說我們有買，叫他相信我們。(口說無憑)", damage: 20 },
+          { id: 2, text: "趕快自己畫一張證書！(偽造文書 - 直接出局)", damage: 100 }
+        ],
+        bgClass: "bg-gray-800"
+      },
+      {
+        rank: 5,
+        name: "變形邊界：設定錯誤",
+        enemy: "邊界史萊姆",
+        description: "組織邊界變來變去，併購了新船卻沒有重算基準年！",
+        dialogue: "我們買了新船隊，但基準年還停留在五年前！這樣比較基準不對！",
+        correctAnswer: 2,
+        options: [
+          { id: 0, text: "假裝沒看到新船隊。(邊界遺漏)", damage: 20 },
+          { id: 1, text: "直接把今年的排放量減半。(胡亂計算)", damage: 20 },
+          { id: 2, text: "檢視變更條件，重算基準年！(維持一致性)", damage: 0 }
+        ],
+        bgClass: "bg-teal-800"
+      },
+      {
+        rank: 4,
+        name: "漏洞海峽：排放源遺漏",
+        enemy: "隱形冷媒怪",
+        description: "你以為算完了，但冷媒、滅火器、化糞池都在偷偷排放溫室氣體！",
+        dialogue: "報告船長！甲板下的冷氣機漏氣了，但我們沒算進去！",
+        correctAnswer: 0,
+        options: [
+          { id: 0, text: "依指引逐項核對逸散源，現場巡檢！(完整盤查)", damage: 0 },
+          { id: 1, text: "那一點點沒關係啦，不算了。(重大性忽視)", damage: 15 },
+          { id: 2, text: "把冷氣機丟到海裡。(破壞環境)", damage: 40 }
+        ],
+        bgClass: "bg-emerald-800"
+      },
+      {
+        rank: 3,
+        name: "混亂群島：類別判定",
+        enemy: "分類騙徒",
+        description: "那是宿舍還是工廠？是外包還是租賃？控制權判定一團亂！",
+        dialogue: "這艘接駁船到底是我們的還是租來的？油錢誰付？",
+        correctAnswer: 1,
+        options: [
+          { id: 0, text: "隨便分在類別1好了，比較簡單。(分類錯誤)", damage: 20 },
+          { id: 1, text: "依控制權與費用歸屬，明確判定類別！(權責分明)", damage: 0 },
+          { id: 2, text: "那是外包商的事，不關我們的事。(推卸責任)", damage: 20 }
+        ],
+        bgClass: "bg-amber-700"
+      },
+      {
+        rank: 2,
+        name: "雙子海流：單位不一致",
+        enemy: "單位雙頭龍",
+        description: "這邊用公噸，那邊用公斤，係數又用磅！計算結果完全不合理！",
+        dialogue: "完蛋了！我們把 1000 公斤算成 1000 公噸了！",
+        correctAnswer: 0,
+        options: [
+          { id: 0, text: "建立獨立數值單位，運算時納入單位換算！(邏輯嚴謹)", damage: 0 },
+          { id: 1, text: "把所有數字後面都加個零。(數字膨脹)", damage: 30 },
+          { id: 2, text: "怪罪計算機壞掉了。(藉口)", damage: 10 }
+        ],
+        bgClass: "bg-orange-800"
+      },
+      {
+        rank: 1,
+        name: "最終試煉：重大性鑑別",
+        enemy: "霸王色霸氣 - 鑑別守門人",
+        description: "這是最後一關！你的鑑別準則反反覆覆，毫無邏輯可言！",
+        dialogue: "你想排除這個排放源？理由呢？你的準則在哪裡？",
+        correctAnswer: 1,
+        options: [
+          { id: 0, text: "因為算起來很麻煩，所以排除。(不合理理由)", damage: 40 },
+          { id: 1, text: "依一致性準則鑑別，並給出合理排除說明！(合規合力)", damage: 0 },
+          { id: 2, text: "看心情決定哪個重要。(缺乏準則)", damage: 40 }
+        ],
+        bgClass: "bg-red-900"
+      }
+    ];
+
+    const treasureMapData = [
+      {
+        rank: 1,
+        title: "重大性鑑別缺乏一致性與合理性",
+        rule: "5.2.3 報告邊界",
+        trap: ["鑑別條件未明確界定", "應依所訂定的重大性準則進行鑑別"],
+        solution: ["檢視鑑別準則是否明確", "應以合理的說明做排除理由"]
+      },
+      {
+        rank: 2,
+        title: "單位/係數錯誤 & 計算不一致",
+        rule: "6.3 量化方法",
+        trap: ["單位轉換錯誤", "排放係數與活動數據單位不同"],
+        solution: ["建立獨立數值單位", "計算過程將單位納入運算"]
+      },
+      {
+        rank: 3,
+        title: "類別判定錯誤 & 外包分類不當",
+        rule: "5.2 報告邊界",
+        trap: ["租賃/外包判定錯誤", "控制權界定不清"],
+        solution: ["依控制/費用歸屬判定", "於設施層級文件化類別"]
+      },
+      {
+        rank: 4,
+        title: "排放源類別不完整 (遺漏)",
+        rule: "6.1 溫室氣體源識別",
+        trap: ["逸散源(冷媒/化糞池)遺漏", "子類別認定不清"],
+        solution: ["依指引逐項核對", "結合現場巡檢與許可文件比對"]
+      },
+      {
+        rank: 5,
+        title: "邊界設定不正確 & 基準年缺漏",
+        rule: "5.1 組織邊界 / 6.4 基準年",
+        trap: ["邊界設定未依使用者要求", "變更後未重算基準年"],
+        solution: ["依政府核定文件設定", "每次盤查檢視變更條件"]
+      },
+      {
+        rank: 6,
+        title: "文件/紀錄保存不足",
+        rule: "8.2 文件與紀錄保存",
+        trap: ["原始單據缺失", "綠電憑證資料不全"],
+        solution: ["建立一致性統計來源", "檢附完整憑證與註銷記錄"]
+      },
+      {
+        rank: 7,
+        title: "量化方法選用/計算錯誤",
+        rule: "6.2 量化方法 / 6.3 量化計算",
+        trap: ["未使用淨熱值", "係數引用錯誤"],
+        solution: ["優先選用高準確度數值", "依 ISO 17025 修正係數"]
+      },
+      {
+        rank: 8,
+        title: "GWP 版本與數值錯誤",
+        rule: "6.3 量化計算",
+        trap: ["選用錯誤GWP版本", "未說明引用依據"],
+        solution: ["採用 IPCC 最新版次", "特定目的需採雙軌說明"]
+      },
+      {
+        rank: 9,
+        title: "報告內容缺漏或透明度不足",
+        rule: "9.1~9.3 報告揭露要求",
+        trap: ["未揭露排除理由", "未列出係數來源"],
+        solution: ["依指引完整章節揭露", "補足資訊來源說明"]
+      },
+      {
+        rank: 10,
+        title: "數據品質管理不足 & 儀表未校正",
+        rule: "8.3 不確定性評估",
+        trap: ["無內控稽核", "儀表未定期外校"],
+        solution: ["規範儀表取樣與稽核", "定期校正並保存紀錄"]
+      }
+    ];
+
+    // --- 組件：藏寶圖 (TreasureMap) ---
+    const TreasureMap = ({ onRestart }) => {
+      return (
+        <div className="min-h-screen bg-[#f4e4bc] p-4 md:p-8 flex justify-center items-start overflow-y-auto relative font-serif"
+             style={{
+               backgroundImage: `url('https://www.transparenttextures.com/patterns/aged-paper.png')`,
+             }}>
+          
+          <button 
+            onClick={onRestart}
+            className="fixed top-4 right-4 z-50 bg-[#8b0000] text-[#f4e4bc] p-2 rounded-full shadow-lg hover:scale-110 transition-transform border-2 border-[#f4e4bc]"
+          >
+            <X className="w-6 h-6" />
+          </button>
+
+          <div className="max-w-5xl w-full bg-[#f4e4bc] border-8 border-[#6b5b3e] p-6 md:p-10 shadow-2xl relative"
+               style={{
+                 backgroundImage: `url('https://www.transparenttextures.com/patterns/aged-paper.png'), radial-gradient(circle at center, #fff3d6 0%, #dcc096 100%)`,
+                 borderImage: `url('https://i.imgur.com/7QGZ3gE.png') 30 round`,
+               }}>
+            
+            <div className="text-center mb-12 relative">
+              <h1 className="text-4xl md:text-5xl font-bold text-[#8b0000] drop-shadow-md tracking-widest mb-2" style={{ fontFamily: '"Special Elite", "Courier New", cursive' }}>
+                <span className="text-2xl align-middle mx-2">☠</span>
+                淨零號的綠色寶藏清單
+                <span className="text-2xl align-middle mx-2">☠</span>
+              </h1>
+              <h2 className="text-xl md:text-2xl text-[#6b5b3e] font-bold">ISO 14064-1 通關密語</h2>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {treasureMapData.map((item) => (
+                <div key={item.rank} className="bg-[#fff3d6] border-2 border-[#6b5b3e] rounded-tl-xl rounded-br-xl rounded-tr-[50px] rounded-bl-[50px] p-6 shadow-md relative group hover:scale-[1.02] transition-transform duration-300">
+                  <div className="absolute -top-4 -left-4 w-12 h-12 bg-[#8b0000] text-[#fff3d6] border-2 border-[#fff3d6] rounded-full flex items-center justify-center font-bold text-xl shadow-lg z-10">
+                    {item.rank}
+                  </div>
+                  <h3 className="text-xl font-bold text-[#8b0000] mb-4 border-b-2 border-dashed border-[#6b5b3e] pb-2 pl-6 flex items-center">
+                    <Skull className="w-5 h-5 mr-2 inline-block" />
+                    {item.title}
+                  </h3>
+                  <div className="space-y-4 text-[#4a3c28]">
+                    <div>
+                      <h4 className="font-bold text-[#6b5b3e] mb-1 flex items-center">
+                        <Scroll className="w-4 h-4 mr-2" /> 古老規矩 (涉及條文)
+                      </h4>
+                      <p className="text-sm pl-6 border-l-2 border-[#6b5b3e]/30">{item.rule}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-[#6b5b3e] mb-1 flex items-center">
+                        <Bomb className="w-4 h-4 mr-2" /> 觸礁陷阱 (常見原因)
+                      </h4>
+                      <ul className="text-sm pl-6 space-y-1">
+                        {item.trap.map((t, i) => (
+                          <li key={i} className="relative">
+                            <span className="absolute -left-4 top-1 text-xs text-[#8b0000]">⚓</span> {t}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-green-800 mb-1 flex items-center">
+                        <Key className="w-4 h-4 mr-2" /> 通關密語 (解決方法)
+                      </h4>
+                      <ul className="text-sm pl-6 space-y-1">
+                        {item.solution.map((s, i) => (
+                          <li key={i} className="relative font-semibold">
+                            <span className="absolute -left-4 top-1 text-xs text-green-700">🗝️</span> {s}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="text-center mt-12 relative">
+              <img src="https://i.imgur.com/7xQQ8zX.png" alt="Treasure Chest" className="w-32 mx-auto drop-shadow-xl filter brightness-110 contrast-125 mb-4" />
+              <p className="text-xl font-bold text-green-900 bg-[#fff3d6]/80 inline-block px-6 py-2 rounded-full border border-[#6b5b3e]">
+                恭喜船長！掌握所有通關密語，成功奪回 ISO 14064-1 查驗證書！
+              </p>
+            </div>
+            <img src="https://i.imgur.com/5Xy5X6p.png" alt="Compass" className="absolute bottom-4 right-4 w-24 opacity-40 pointer-events-none" />
+          </div>
+        </div>
+      );
+    };
+
+    // --- 主程式 (App) ---
+    const App = () => {
+      const [gameState, setGameState] = useState('start');
+      const [currentLevelIndex, setCurrentLevelIndex] = useState(0);
+      const [hp, setHp] = useState(100);
+      const [log, setLog] = useState(["冒險開始！目標是奪回綠色祕寶！"]);
+      const [showFeedback, setShowFeedback] = useState(false);
+      const [feedbackMsg, setFeedbackMsg] = useState({ type: '', text: '' });
+
+      const currentLevel = gameLevels[currentLevelIndex];
+
+      const startGame = () => {
+        setGameState('playing');
+        setCurrentLevelIndex(0);
+        setHp(100);
+        setLog(["船長！我們出航了！第一道難關就在前方！"]);
+        setShowFeedback(false);
+      };
+
+      const handleAnswer = (option) => {
+        if (showFeedback) return;
+        if (option.id === currentLevel.correctAnswer) {
+          setFeedbackMsg({ type: 'success', text: '「霸氣反擊」成功！缺失已修正！' });
+          setLog(prev => [`第 ${10 - currentLevelIndex} 關通過：${option.text}`, ...prev]);
+        } else {
+          const damage = option.damage;
+          setHp(prev => Math.max(0, prev - damage));
+          setFeedbackMsg({ type: 'error', text: `遭受攻擊！被開立缺失單！ HP -${damage}` });
+          setLog(prev => [`受到傷害：${option.text} (-${damage} HP)`, ...prev]);
+        }
+        setShowFeedback(true);
+      };
+
+      const nextLevel = () => {
+        setShowFeedback(false);
+        if (hp <= 0) {
+          setGameState('gameover');
+          return;
+        }
+        if (currentLevelIndex < gameLevels.length - 1) {
+          setCurrentLevelIndex(prev => prev + 1);
+        } else {
+          setGameState('victory');
+        }
+      };
+
+      if (gameState === 'map') return <TreasureMap onRestart={() => setGameState('start')} />;
+
+      if (gameState === 'start') {
+        return (
+          <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-sans relative overflow-hidden">
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/aged-paper.png')] opacity-20"></div>
+            <div className="max-w-2xl w-full bg-slate-800 rounded-3xl shadow-2xl overflow-hidden border-4 border-yellow-600 relative z-10">
+              <div className="bg-slate-900 p-12 text-center">
+                <div className="flex justify-center mb-6">
+                  <Ship className="w-24 h-24 text-yellow-500 animate-bounce" />
+                </div>
+                <h1 className="text-4xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600 mb-4 tracking-tight">
+                  大航海時代
+                </h1>
+                <h2 className="text-2xl text-white mb-8 font-bold">奪回綠色祕寶</h2>
+                <p className="text-slate-400 mb-8 text-lg leading-relaxed">
+                  傳說中，只要通過 10 道「ISO 14064-1 查驗試煉」，<br/>
+                  就能獲得象徵企業永續的黃金證書。<br/>
+                  <span className="text-yellow-400 block mt-2 font-bold">船長，你的海賊船「淨零號」準備好了嗎？</span>
+                </p>
+                <button onClick={startGame} className="bg-red-600 hover:bg-red-700 text-white text-xl font-bold py-4 px-12 rounded-full shadow-lg transform hover:scale-105 transition-all flex items-center justify-center mx-auto border-4 border-red-800">
+                  <Anchor className="mr-3 w-6 h-6" /> 揚帆出發！
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (gameState === 'victory') {
+        return (
+          <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-sans relative">
+             <div className="absolute inset-0 bg-yellow-500/20 animate-pulse"></div>
+            <div className="max-w-3xl w-full bg-white rounded-3xl shadow-2xl overflow-hidden border-8 border-yellow-500 relative z-10 text-center p-12">
+               <Trophy className="w-32 h-32 text-yellow-500 mx-auto mb-6 drop-shadow-lg" />
+               <h1 className="text-5xl font-extrabold text-slate-800 mb-4">冒險成功！</h1>
+               <p className="text-xl text-slate-600 mb-8">
+                 恭喜船長！你成功克服了所有常見缺失，<br/>取得 <span className="text-green-600 font-bold">ISO 14064-1 查驗證書</span>！
+               </p>
+               <div className="space-y-4">
+                 <button onClick={() => setGameState('map')} className="bg-yellow-600 hover:bg-yellow-700 text-white text-xl font-bold py-4 px-10 rounded-full shadow-xl transform hover:scale-105 transition-all flex items-center mx-auto border-4 border-yellow-300 w-full md:w-auto justify-center">
+                    <MapIcon className="mr-3 w-6 h-6" /> 打開傳說藏寶圖 (查看總整理)
+                  </button>
+                  <button onClick={() => setGameState('start')} className="text-slate-500 hover:text-slate-800 font-bold py-2 px-8 transition-all flex items-center mx-auto">
+                    <RefreshCw className="mr-2 w-4 h-4" /> 再次挑戰
+                  </button>
+               </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (gameState === 'gameover') {
+        return (
+          <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-sans">
+            <div className="max-w-2xl w-full bg-slate-800 rounded-3xl shadow-2xl overflow-hidden border-4 border-red-900 text-center p-12">
+               <Skull className="w-32 h-32 text-gray-500 mx-auto mb-6" />
+               <h1 className="text-5xl font-extrabold text-red-500 mb-4">查驗失敗...</h1>
+               <p className="text-xl text-slate-400 mb-8">「淨零號」因為缺失過多而沉沒了...<br/>請重新檢視盤查規範，再來挑戰吧！</p>
+               <button onClick={() => setGameState('start')} className="bg-slate-600 hover:bg-slate-700 text-white font-bold py-3 px-8 rounded-full shadow-md transition-all flex items-center mx-auto">
+                  <RefreshCw className="mr-2 w-5 h-5" /> 重整旗鼓
+                </button>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className={`min-h-screen ${currentLevel.bgClass} transition-colors duration-1000 font-sans text-white p-4 flex flex-col items-center justify-center relative overflow-hidden`}>
+          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 pointer-events-none"></div>
+          <div className="w-full max-w-4xl flex justify-between items-center mb-8 relative z-10 bg-black/30 p-4 rounded-xl backdrop-blur-sm border border-white/10">
+            <div className="flex items-center">
+                <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center border-4 border-yellow-700 shadow-lg mr-4">
+                    <span className="font-bold text-yellow-900 text-xl">{currentLevel.rank}</span>
+                </div>
+                <div>
+                    <h2 className="text-xs text-yellow-400 uppercase tracking-widest">目前關卡 (倒數排名)</h2>
+                    <h1 className="text-xl font-bold">{currentLevel.name}</h1>
+                </div>
+            </div>
+            <div className="flex items-center bg-red-900/80 px-4 py-2 rounded-lg border border-red-700">
+                <Heart className={`w-6 h-6 text-red-500 mr-2 ${hp < 30 ? 'animate-ping' : ''}`} fill="currentColor" />
+                <div className="flex flex-col items-end">
+                    <span className="text-xs text-red-300">船體耐久度 (HP)</span>
+                    <span className="font-bold text-xl">{hp} / 100</span>
+                </div>
+             </div>
+          </div>
+
+          <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
+            <div className="flex flex-col items-center justify-center">
+                <div className="relative mb-6 group">
+                     <div className="absolute inset-0 bg-red-500 rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity animate-pulse"></div>
+                     <div className="w-48 h-48 bg-slate-800 rounded-full border-8 border-slate-600 flex items-center justify-center shadow-2xl transform transition-transform group-hover:scale-105 relative overflow-hidden">
+                         {currentLevel.rank <= 3 ? <AlertTriangle className="w-24 h-24 text-red-500" /> : 
+                          currentLevel.rank <= 6 ? <Skull className="w-24 h-24 text-orange-500" /> :
+                          <Sword className="w-24 h-24 text-yellow-500" />}
+                     </div>
+                     <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 bg-red-600 px-4 py-1 rounded-full text-sm font-bold shadow-lg whitespace-nowrap border border-red-400">
+                        Lv.{11-currentLevel.rank} {currentLevel.enemy}
+                     </div>
+                </div>
+                <div className="bg-black/50 p-6 rounded-xl border-l-4 border-red-500 w-full backdrop-blur-md">
+                    <p className="text-red-300 font-bold mb-1 flex items-center"><AlertTriangle className="w-4 h-4 mr-2"/> 缺失攻擊！</p>
+                    <p className="text-lg text-white leading-relaxed">「{currentLevel.description}」</p>
+                </div>
+            </div>
+
+            <div className="flex flex-col space-y-4">
+                 <div className="bg-blue-900/80 p-6 rounded-xl border border-blue-500/50 relative">
+                    <div className="absolute -top-3 -left-3 bg-blue-500 rounded-full p-2 border-2 border-white shadow-lg">
+                        <img src="https://api.dicebear.com/7.x/adventurer/svg?seed=Captain" alt="Captain" className="w-8 h-8 rounded-full bg-white"/>
+                    </div>
+                    <p className="text-blue-100 italic">"{currentLevel.dialogue}"</p>
+                 </div>
+                 <div className="space-y-3 mt-4">
+                    <p className="text-sm text-slate-400 font-bold uppercase tracking-wider mb-2">選擇你的對策：</p>
+                    {currentLevel.options.map((option) => (
+                        <button
+                            key={option.id}
+                            disabled={showFeedback}
+                            onClick={() => handleAnswer(option)}
+                            className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center group
+                                ${showFeedback 
+                                    ? option.id === currentLevel.correctAnswer 
+                                        ? 'bg-green-600 border-green-400 opacity-100' 
+                                        : 'bg-slate-800 border-slate-700 opacity-50'
+                                    : 'bg-slate-800/80 border-slate-600 hover:bg-slate-700 hover:border-yellow-500 hover:shadow-lg hover:shadow-yellow-500/20'
+                                }
+                            `}
+                        >
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-4 flex-shrink-0 font-bold
+                                 ${showFeedback && option.id === currentLevel.correctAnswer ? 'bg-white text-green-600' : 'bg-slate-700 text-slate-300 group-hover:bg-yellow-500 group-hover:text-black'}
+                            `}>
+                                {['A', 'B', 'C'][option.id]}
+                            </div>
+                            <span className="font-bold">{option.text}</span>
+                        </button>
+                    ))}
+                 </div>
+            </div>
+          </div>
+
+          <div className="w-full max-w-4xl mt-8 bg-black/60 rounded-lg p-4 h-32 overflow-y-auto border border-white/10 font-mono text-sm shadow-inner custom-scrollbar">
+             {log.map((entry, i) => (
+                 <div key={i} className="mb-1 text-slate-300 border-b border-white/5 pb-1 last:border-0">
+                     <span className="text-yellow-500 mr-2">➜</span> {entry}
+                 </div>
+             ))}
+          </div>
+
+          {showFeedback && (
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-300">
+                <div className={`bg-white text-slate-900 p-8 rounded-2xl shadow-2xl max-w-md w-full text-center border-4 ${feedbackMsg.type === 'success' ? 'border-green-500' : 'border-red-500'} transform scale-100`}>
+                    <div className="flex justify-center mb-4">
+                        {feedbackMsg.type === 'success' ? <CheckCircle className="w-16 h-16 text-green-500" /> : <AlertTriangle className="w-16 h-16 text-red-500" />}
+                    </div>
+                    <h3 className={`text-2xl font-bold mb-2 ${feedbackMsg.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                        {feedbackMsg.type === 'success' ? '通過試煉！' : '遭受重創！'}
+                    </h3>
+                    <p className="text-lg mb-6 font-medium">{feedbackMsg.text}</p>
+                    
+                    {hp <= 0 ? (
+                        <button onClick={nextLevel} className="bg-red-600 text-white px-6 py-3 rounded-full font-bold hover:bg-red-700 w-full">查看結果</button>
+                    ) : (
+                        <button onClick={nextLevel} className="bg-slate-900 text-white px-6 py-3 rounded-full font-bold hover:bg-slate-800 w-full flex items-center justify-center">前往下一關 <MapIcon className="ml-2 w-4 h-4"/></button>
+                    )}
+                </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+</script>
+
+</body>
+</html>
